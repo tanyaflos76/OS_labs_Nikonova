@@ -51,6 +51,14 @@ int main(int argc, char *argv[])
   if (empty == SEM_FAILED || full == SEM_FAILED)
   {
     perror("sem_open failed");
+    if (empty != SEM_FAILED)
+    {
+      sem_close(empty);
+    }
+    if (full != SEM_FAILED)
+    {
+      sem_close(full);
+    }
     munmap(shared, sizeof(Shared_data));
     close(shm_fd);
     return EXIT_FAILURE;
@@ -58,7 +66,11 @@ int main(int argc, char *argv[])
   int fd = open(filename, O_WRONLY | O_CREAT | O_TRUNC, 0644);
   if (fd == -1)
   {
-    perror("fd_open failed");
+    perror("open failed");
+    sem_close(empty);
+    sem_close(full);
+    munmap(shared, sizeof(Shared_data));
+    close(shm_fd);
     return EXIT_FAILURE;
   }
   char *line = NULL;
@@ -91,9 +103,10 @@ int main(int argc, char *argv[])
         char *temp = realloc(line, new_capacity);
         if (temp == NULL)
         {
-          free(line);
+          perror("realloc failed");
+          status = EXIT_FAILURE;
           sem_post(empty);
-          return EXIT_FAILURE;
+          break;
         }
         line = temp;
         capacity = new_capacity;
@@ -122,7 +135,12 @@ int main(int argc, char *argv[])
         line_len = 0;
       }
     }
-    sem_post(empty);
+    if (sem_post(empty) == -1)
+    {
+      perror("sem_post failed");
+      status = EXIT_FAILURE;
+      break;
+    }
   }
   free(line);
   close(fd);

@@ -184,6 +184,25 @@ int main()
   sem_t *full2 = create_sem(full2_name, 0);
   if (empty1 == SEM_FAILED || full1 == SEM_FAILED || empty2 == SEM_FAILED || full2 == SEM_FAILED)
   {
+    munmap(shared1, sizeof(Shared_data));
+    munmap(shared2, sizeof(Shared_data));
+    close(shm_fd1);
+    close(shm_fd2);
+    shm_unlink(shm_name1);
+    shm_unlink(shm_name2);
+    if (empty1 != SEM_FAILED)
+      sem_close(empty1);
+    if (full1 != SEM_FAILED)
+      sem_close(full1);
+    if (empty2 != SEM_FAILED)
+      sem_close(empty2);
+    if (full2 != SEM_FAILED)
+      sem_close(full2);
+    sem_unlink(empty1_name);
+    sem_unlink(full1_name);
+    sem_unlink(empty2_name);
+    sem_unlink(full2_name);
+
     return EXIT_FAILURE;
   }
 
@@ -209,6 +228,21 @@ int main()
   if (p1 < 0)
   {
     perror("fork failed");
+    munmap(shared1, sizeof(Shared_data));
+    munmap(shared2, sizeof(Shared_data));
+    close(shm_fd1);
+    close(shm_fd2);
+    shm_unlink(shm_name1);
+    shm_unlink(shm_name2);
+    sem_close(empty1);
+    sem_close(full1);
+    sem_close(empty2);
+    sem_close(full2);
+    sem_unlink(empty1_name);
+    sem_unlink(full1_name);
+    sem_unlink(empty2_name);
+    sem_unlink(full2_name);
+
     return EXIT_FAILURE;
   }
 
@@ -226,6 +260,23 @@ int main()
     if (p2 < 0)
     {
       perror("fork failed");
+      message_end(shared1, empty1, full1);
+      waitpid(p1, NULL, 0);
+      munmap(shared1, sizeof(Shared_data));
+      munmap(shared2, sizeof(Shared_data));
+      close(shm_fd1);
+      close(shm_fd2);
+      shm_unlink(shm_name1);
+      shm_unlink(shm_name2);
+      sem_close(empty1);
+      sem_close(full1);
+      sem_close(empty2);
+      sem_close(full2);
+      sem_unlink(empty1_name);
+      sem_unlink(full1_name);
+      sem_unlink(empty2_name);
+      sem_unlink(full2_name);
+
       return EXIT_FAILURE;
     }
 
@@ -270,10 +321,19 @@ int main()
         }
         free(line);
       }
+      int status1;
+      int status2;
       message_end(shared1, empty1, full1);
       message_end(shared2, empty2, full2);
-      waitpid(p1, NULL, 0);
-      waitpid(p2, NULL, 0);
+      if (waitpid(p1, &status1, 0) == -1)
+      {
+        perror("waitpid child1");
+      }
+      if (waitpid(p2, &status2, 0) == -1)
+      {
+        perror("waitpid child2");
+      }
+      munmap(shared1, sizeof(Shared_data));
       munmap(shared2, sizeof(Shared_data));
       close(shm_fd1);
       close(shm_fd2);
